@@ -4,6 +4,7 @@ import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
@@ -57,13 +58,20 @@ public class RestAPIBatchApplication {
         private JobLauncher jobLauncher;
 
         @Autowired
+        private JobExplorer jobExplorer;
+
+        @Autowired
         private ApplicationContext context;
 
         @PostMapping(path = "/run")
         public ExitStatus runJob(@RequestBody JobLauncherRequest request) throws JobInstanceAlreadyCompleteException, JobExecutionAlreadyRunningException, JobParametersInvalidException, JobRestartException {
             Job job = this.context.getBean(request.getName(), Job.class);
 
-            return this.jobLauncher.run(job, request.getJobParameters())
+            JobParameters jobParameters = new JobParametersBuilder(request.getJobParameters(), this.jobExplorer)
+                    .getNextJobParameters(job)
+                    .toJobParameters();
+
+            return this.jobLauncher.run(job, jobParameters)
                     .getExitStatus();
         }
 
